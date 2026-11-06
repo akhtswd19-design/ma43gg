@@ -18,7 +18,7 @@
         <div class="user-status-bar">
             <span class="online-badge">
                 <span class="pulse-dot"></span>
-                <span id="onlineCount">14</span> متصل الآن
+                <span id="onlineCount">1</span> متصل الآن
             </span>
             <button id="adminBtn" class="btn-admin-access" onclick="openAdminModal()" style="display: none;">لوحة الأدمن</button>
         </div>
@@ -26,7 +26,6 @@
 
     <main class="main-content">
         
-        <!-- واجهة الصفحة الرئيسية -->
         <section id="viewHome" class="view-page active-view">
             <div class="banner-carousel">
                 <div class="carousel-track" id="carouselTrack"></div>
@@ -59,7 +58,6 @@
             </div>
         </section>
 
-        <!-- واجهة إضافة تجربة (مشروطة بتسجيل الدخول) -->
         <section id="viewAdd" class="view-page">
             <div class="form-container glass-card">
                 <h2 class="form-title">إضافة تجربة جديدة</h2>
@@ -143,7 +141,6 @@
         </button>
     </nav>
 
-    <!-- لوحة تحكم الأدمن -->
     <div id="adminModal" class="modal-overlay">
         <div class="modal-card glass-card">
             <div class="modal-header">
@@ -152,10 +149,16 @@
             </div>
             <div class="modal-body">
                 <div class="admin-section">
-                    <h4>إضافة إعلان جديد</h4>
+                    <h4>إضافة إعلان جديد (نص + صورة من الاستوديو)</h4>
                     <input type="text" id="adminAdText" placeholder="نص الإعلان">
                     <input type="text" id="adminAdLink" placeholder="رابط الإعلان (اختياري)">
-                    <button class="admin-act-btn" onclick="addAdminAd()">إضافة إعلان</button>
+                    <input type="file" id="adminAdImageFile" accept="image/*" style="margin-top: 6px; font-size: 0.8rem; color: #fff;">
+                    <button class="admin-act-btn" style="margin-top: 8px;" onclick="addAdminAd()">إضافة إعلان</button>
+                </div>
+
+                <div class="admin-section">
+                    <h4>قائمة الإعلانات الحالية (حذف)</h4>
+                    <div id="adminAdsList" class="admin-tags-list"></div>
                 </div>
 
                 <div class="admin-section">
