@@ -7,10 +7,10 @@ let state = {
     majors: ["علوم حاسب", "هندسة", "إدارة أعمال", "قانون", "شريعة", "أخرى"],
     ads: [],
     experiences: [],
-    currentUser: null
+    currentUser: null,
+    votesMap: JSON.parse(localStorage.getItem('al3agl_user_votes') || '{}') // تخزين أصوات المستخدم الشخصية
 };
 
-// جلب البيانات من السيرفر المركزي (لكي تظهر التجارب للجميع فوراً)
 async function fetchServerData() {
     try {
         const res = await fetch('/api/data');
@@ -20,6 +20,10 @@ async function fetchServerData() {
             state.majors = data.majors || state.majors;
             state.ads = data.ads || state.ads;
             state.experiences = data.experiences || [];
+            
+            const onlineEl = document.getElementById('onlineCount');
+            if (onlineEl && data.onlineUsers) onlineEl.innerText = data.onlineUsers;
+
             renderCategories();
             renderMajors();
             renderAds();
@@ -28,7 +32,6 @@ async function fetchServerData() {
     } catch(e) {}
 }
 
-// حفظ وتحديث البيانات في السيرفر المركزي
 async function saveServerData() {
     try {
         await fetch('/api/data', {
@@ -44,26 +47,22 @@ async function saveServerData() {
     } catch(e) {}
 }
 
-// عداد متصلين تلقائي حي
-function initRealtimeOnline() {
-    let currentOnline = Math.floor(Math.random() * 5) + 14;
-    const onlineEl = document.getElementById('onlineCount');
-    if (onlineEl) onlineEl.innerText = currentOnline;
-    
-    setInterval(() => {
-        if (Math.random() > 0.4) {
-            currentOnline += (Math.random() > 0.5 ? 1 : -1);
-            if (currentOnline < 5) currentOnline = 12;
-            if (onlineEl) onlineEl.innerText = currentOnline;
-        }
-    }, 4000);
+// إرسال إشارة اتصال حقيقية للسيرفر لحساب المتصلين بدقة
+async function pingServer() {
+    try {
+        const res = await fetch('/api/connect', { method: 'POST' });
+        const data = await res.json();
+        const onlineEl = document.getElementById('onlineCount');
+        if (onlineEl && data.online) onlineEl.innerText = data.online;
+    } catch(e) {}
 }
 
 document.addEventListener("DOMContentLoaded", () => {
     initStarsBg();
-    initRealtimeOnline();
+    pingServer();
+    setInterval(pingServer, 10000); // نبض كل 10 ثواني
     fetchServerData();
-    setInterval(fetchServerData, 3000); // تحديث دوري لتظهر تجارب الناس مباشرة
+    setInterval(fetchServerData, 3000);
 
     renderCategories();
     renderMajors();
@@ -121,12 +120,7 @@ function toggleMajorField() {
     const edu = document.getElementById('fieldEdu');
     const majorGroup = document.getElementById('majorGroup');
     if (!edu || !majorGroup) return;
-
-    if (edu.value === 'جامعي') {
-        majorGroup.style.display = 'flex';
-    } else {
-        majorGroup.style.display = 'none';
-    }
+    majorGroup.style.display = (edu.value === 'جامعي') ? 'flex' : 'none';
 }
 
 function renderMajors() {
@@ -183,7 +177,14 @@ function renderAds() {
     state.ads.forEach((ad, index) => {
         const slide = document.createElement('div');
         slide.className = 'banner-slide';
-        slide.innerHTML = `<h4>${ad.title}</h4>`;
+        
+        let contentHtml = '';
+        if (ad.image) {
+            contentHtml += `<img src="${ad.image}" style="max-height: 75px; border-radius: 6px; margin-bottom: 4px; object-fit: cover;">`;
+        }
+        contentHtml += `<h4>${ad.title}</h4>`;
+        
+        slide.innerHTML = contentHtml;
         if (ad.link) {
             slide.onclick = () => window.open(ad.link, '_blank');
             slide.style.cursor = 'pointer';
@@ -194,6 +195,7 @@ function renderAds() {
         dot.className = `dot ${index === 0 ? 'active' : ''}`;
         dots.appendChild(dot);
     });
+    renderAdminAds();
 }
 
 function renderExperiences() {
@@ -206,12 +208,17 @@ function renderExperiences() {
         filtered = filtered.filter(item => item.category === state.activeCategory);
     }
 
+    // حساب نسبة الصحة الدقيقة لكل تجربة بناءً على عدد المصوتين
     filtered.forEach(item => {
-        const total = item.upvotes + item.downvotes;
-        item.accuracy = total === 0 ? 50 : Math.round((item.upvotes / total) * 100);
+        const up = item.upvotes || 0;
+        const down = item.downvotes || 0;
+        const total = up + down;
+        item.accuracy = total === 0 ? 50 : Math.round((up / total) * 100);
+        item.totalVotes = total;
     });
 
-    filtered.sort((a, b) => b.accuracy - a.accuracy);
+    // الترتيب التلقائي حسب نسبة الصحة للأعلى
+    filtered.sort((a, b) => b.accuracy - a.accuracy || b.totalVotes - a.totalVotes);
 
     if (filtered.length === 0) {
         feed.innerHTML = `<p style="text-align:center; color:var(--text-gray); font-size:0.85rem; padding:20px;">لا توجد تجارب مضافة حتى الآن في هذا القسم.</p>`;
@@ -219,6 +226,10 @@ function renderExperiences() {
     }
 
     filtered.forEach(exp => {
+        const userVote = state.votesMap[exp.id] || null; // حالة التصويت الخاصة بهذا المستخدم فقط
+        const upCount = exp.upvotes || 0;
+        const downCount = exp.downvotes || 0;
+
         const card = document.createElement('div');
         card.className = 'exp-card';
         card.innerHTML = `
@@ -233,11 +244,13 @@ function renderExperiences() {
             <div class="exp-content-body">${exp.content}</div>
             <div class="exp-footer-actions">
                 <div class="vote-controls">
-                    <button class="vote-btn up ${exp.userVoted === 'up' ? 'voted' : ''}" onclick="vote(${exp.id}, 'up')">
-                        <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
-                    </button>
-                    <button class="vote-btn down ${exp.userVoted === 'down' ? 'voted' : ''}" onclick="vote(${exp.id}, 'down')">
+                    <button class="vote-btn down ${userVote === 'down' ? 'voted' : ''}" onclick="vote(${exp.id}, 'down')" title="تصويت سلبي">
                         <svg viewBox="0 0 24 24"><path d="M12 20l8-8h-5V4h-6v8H4z"/></svg>
+                        <span style="font-size:0.7rem; margin-right:2px;">${downCount}</span>
+                    </button>
+                    <button class="vote-btn up ${userVote === 'up' ? 'voted' : ''}" onclick="vote(${exp.id}, 'up')" title="تصويت إيجابي">
+                        <svg viewBox="0 0 24 24"><path d="M12 4l-8 8h5v8h6v-8h5z"/></svg>
+                        <span style="font-size:0.7rem; margin-right:2px;">${upCount}</span>
                     </button>
                     <span class="percentage-badge">نسبة الصحة: <strong>${exp.accuracy}%</strong></span>
                 </div>
@@ -251,21 +264,33 @@ function renderExperiences() {
     });
 }
 
+// نظام التصويت الفردي المستقل لكل مستخدم
 async function vote(expId, type) {
     const item = state.experiences.find(e => e.id === expId);
     if (!item) return;
 
-    if (item.userVoted === type) {
+    if (!item.upvotes) item.upvotes = 0;
+    if (!item.downvotes) item.downvotes = 0;
+
+    const currentVote = state.votesMap[expId] || null;
+
+    if (currentVote === type) {
+        // إلغاء التصويت إذا ضغط المستخدم على نفس الزر مرة أخرى
         if (type === 'up') item.upvotes--;
         else item.downvotes--;
-        item.userVoted = null;
+        delete state.votesMap[expId];
     } else {
-        if (item.userVoted === 'up') item.upvotes--;
-        if (item.userVoted === 'down') item.downvotes--;
+        // إزالة التصويت القديم إن وجد
+        if (currentVote === 'up') item.upvotes--;
+        if (currentVote === 'down') item.downvotes--;
+
+        // تسجيل التصويت الجديد
         if (type === 'up') item.upvotes++;
         else item.downvotes++;
-        item.userVoted = type;
+        state.votesMap[expId] = type;
     }
+
+    localStorage.setItem('al3agl_user_votes', JSON.stringify(state.votesMap));
     await saveServerData();
     renderExperiences();
 }
@@ -304,7 +329,7 @@ async function createNewExperience() {
         year: document.getElementById('fieldYear').value,
         category: document.getElementById('fieldCategory').value,
         content: content,
-        upvotes: 1,
+        upvotes: 0,
         downvotes: 0,
         hidden: false
     };
@@ -377,6 +402,18 @@ function renderAdminMajors() {
     });
 }
 
+function renderAdminAds() {
+    const list = document.getElementById('adminAdsList');
+    if (!list) return;
+    list.innerHTML = '';
+    state.ads.forEach(ad => {
+        const tag = document.createElement('div');
+        tag.className = 'admin-tag';
+        tag.innerHTML = `${ad.title} <span onclick="removeAd(${ad.id})">× حذف</span>`;
+        list.appendChild(tag);
+    });
+}
+
 function renderAdminExperiences() {
     const list = document.getElementById('adminExperiencesList');
     if (!list) return;
@@ -425,6 +462,47 @@ async function removeMajor(major) {
     state.majors = state.majors.filter(m => m !== major);
     await saveServerData();
     renderMajors();
+}
+
+async function addAdminAd() {
+    const text = document.getElementById('adminAdText').value.trim();
+    const link = document.getElementById('adminAdLink').value.trim();
+    const fileInput = document.getElementById('adminAdImageFile');
+    
+    if (!text && (!fileInput || fileInput.files.length === 0)) {
+        alert('يرجى كتابة نص الإعلان أو اختيار صورة على الأقل.');
+        return;
+    }
+
+    let imageUrl = '';
+    if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            imageUrl = e.target.result;
+            state.ads.push({ id: Date.now(), title: text, link: link, image: imageUrl });
+            await saveServerData();
+            document.getElementById('adminAdText').value = '';
+            document.getElementById('adminAdLink').value = '';
+            fileInput.value = '';
+            renderAds();
+            alert('تم إضافة الإعلان بنجاح');
+        };
+        reader.readAsDataURL(file);
+    } else {
+        state.ads.push({ id: Date.now(), title: text, link: link, image: '' });
+        await saveServerData();
+        document.getElementById('adminAdText').value = '';
+        document.getElementById('adminAdLink').value = '';
+        renderAds();
+        alert('تم إضافة الإعلان بنجاح');
+    }
+}
+
+async function removeAd(id) {
+    state.ads = state.ads.filter(a => a.id !== id);
+    await saveServerData();
+    renderAds();
 }
 
 async function toggleHideExp(id) {
