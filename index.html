@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تجارب العاقل</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="stars-bg" id="starsBg"></div>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <header class="app-header">
+        <h1 class="app-title">تجارب العاقل</h1>
+        <div class="user-status-bar">
+            <span class="online-badge">
+                <span class="pulse-dot"></span>
+                <span id="onlineCount">14</span> متصل الآن
+            </span>
+            <button id="adminBtn" class="btn-admin-access" onclick="openAdminModal()" style="display: none;">لوحة الأدمن</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        
+        <!-- واجهة الصفحة الرئيسية -->
+        <section id="viewHome" class="view-page active-view">
+            <div class="banner-carousel">
+                <div class="carousel-track" id="carouselTrack"></div>
+                <div class="carousel-dots" id="carouselDots"></div>
+            </div>
+
+            <div class="action-grid">
+                <a href="https://t.me/Al3agl_bot" target="_blank" class="glass-btn">
+                    <span>متجر العاقل</span>
+                    <small>اضغط هنا</small>
+                </a>
+                <a href="https://t.me/Q3skrr" target="_blank" class="glass-btn">
+                    <span>قروب المناقشه</span>
+                    <small>اضغط هنا</small>
+                </a>
+            </div>
+
+            <div class="telegram-auth-box">
+                <div id="telegramWidgetContainer"></div>
+                <div id="userProfileDisplay" class="user-profile-card" style="display: none;"></div>
+            </div>
+
+            <div class="categories-wrapper">
+                <div class="categories-scroll" id="categoriesBar"></div>
+            </div>
+
+            <div class="feed-section">
+                <h3 class="section-heading">التجارب السابقة</h3>
+                <div id="experiencesFeed" class="feed-container"></div>
+            </div>
+        </section>
+
+        <!-- واجهة إضافة تجربة (مشروطة بتسجيل الدخول) -->
+        <section id="viewAdd" class="view-page">
+            <div class="form-container glass-card">
+                <h2 class="form-title">إضافة تجربة جديدة</h2>
+                
+                <div id="loginRequiredMsg" class="login-warning-box">
+                    🔒 يجب تسجيل الدخول عبر تليجرام في الصفحة الرئيسية أولاً لتتمكن من إضافة تجربة جديدة.
+                </div>
+
+                <div id="addExperienceFormBody" style="display: none;">
+                    <div class="selectors-grid">
+                        <div class="select-group">
+                            <label>الجنس</label>
+                            <select id="fieldGender">
+                                <option value="ذكر">ذكر</option>
+                                <option value="أنثى">أنثى</option>
+                            </select>
+                        </div>
+
+                        <div class="select-group">
+                            <label>المؤهل</label>
+                            <select id="fieldEdu" onchange="toggleMajorField()">
+                                <option value="جامعي">جامعي</option>
+                                <option value="ثانوي">ثانوي</option>
+                            </select>
+                        </div>
+
+                        <div class="select-group" id="majorGroup">
+                            <label>التخصص الجامعي</label>
+                            <select id="fieldMajor"></select>
+                        </div>
+
+                        <div class="select-group">
+                            <label>الحالة</label>
+                            <select id="fieldStatus">
+                                <option value="طالب بالكلية">طالب بالكلية</option>
+                                <option value="مقبول">مقبول</option>
+                                <option value="مرفوض">مرفوض</option>
+                            </select>
+                        </div>
+
+                        <div class="select-group">
+                            <label>السنة</label>
+                            <select id="fieldYear">
+                                <option value="1448">1448</option>
+                                <option value="1447">1447</option>
+                                <option value="1446">1446</option>
+                            </select>
+                        </div>
+
+                        <div class="select-group full-width">
+                            <label>الكلية / جهة التقديم</label>
+                            <select id="fieldCategory"></select>
+                        </div>
+                    </div>
+
+                    <div class="textarea-box">
+                        <textarea id="fieldContent" placeholder="اكتب تجربتك بالتفصيل هنا..." rows="6"></textarea>
+                    </div>
+
+                    <div class="rules-warning">
+                        <p>⛔ ممنوع تحديد أماكن</p>
+                        <p>⛔ ممنوع تحديد رتب</p>
+                        <p>⛔ ممنوع الدلاله لشخص معين او التقريب عن قصد بشي من الأشياء</p>
+                    </div>
+
+                    <button class="submit-btn" onclick="createNewExperience()">إرسال التجربة</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('viewHome', this)">
+            <svg viewBox="0 0 24 24" class="nav-icon"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span>الصفحة الرئيسية</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('viewAdd', this)">
+            <svg viewBox="0 0 24 24" class="nav-icon"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <span>اضافة تجربه</span>
+        </button>
+    </nav>
+
+    <!-- لوحة تحكم الأدمن -->
+    <div id="adminModal" class="modal-overlay">
+        <div class="modal-card glass-card">
+            <div class="modal-header">
+                <h3>لوحة تحكم الأدمن</h3>
+                <button class="close-btn" onclick="closeAdminModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="admin-section">
+                    <h4>إضافة إعلان جديد</h4>
+                    <input type="text" id="adminAdText" placeholder="نص الإعلان">
+                    <input type="text" id="adminAdLink" placeholder="رابط الإعلان (اختياري)">
+                    <button class="admin-act-btn" onclick="addAdminAd()">إضافة إعلان</button>
+                </div>
+
+                <div class="admin-section">
+                    <h4>إدارة الكتالوجات (الأقسام)</h4>
+                    <div class="inline-form">
+                        <input type="text" id="adminCatInput" placeholder="اسم القسم الجديد">
+                        <button class="admin-act-btn" onclick="addAdminCategory()">إضافة</button>
+                    </div>
+                    <div id="adminCatsList" class="admin-tags-list"></div>
+                </div>
+
+                <div class="admin-section">
+                    <h4>إدارة التخصصات الجامعية</h4>
+                    <div class="inline-form">
+                        <input type="text" id="adminMajorInput" placeholder="التخصص الجديد">
+                        <button class="admin-act-btn" onclick="addAdminMajor()">إضافة</button>
+                    </div>
+                    <div id="adminMajorsList" class="admin-tags-list"></div>
+                </div>
+
+                <div class="admin-section">
+                    <h4>إدارة التجارب (حذف / إخفاء)</h4>
+                    <div id="adminExperiencesList" class="admin-exp-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

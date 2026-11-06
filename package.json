@@ -1,0 +1,12 @@
+{
+  "name": "al3agl-experiences",
+  "version": "1.0.0",
+  "description": "منصة تجارب العاقل",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
