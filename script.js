@@ -1,7 +1,7 @@
 const BOT_USERNAME = "Al3agle_bot";
 const ADMIN_TELEGRAM_ID = "1056007305"; 
 
-// إنشاء معرف فريد وثابت لهذا المتصفح لمنع تضاعف العدد عند الـ Refresh
+// استخدام sessionStorage لضمان عدم تضاعف العدد عند تحديث الصفحة (Refresh)
 let clientId = sessionStorage.getItem('al3agl_session_id');
 if (!clientId) {
     clientId = 'client_' + Math.random().toString(36).substring(2) + Date.now();
@@ -332,6 +332,8 @@ async function createNewExperience() {
 
     const newExp = {
         id: Date.now(),
+        authorName: state.currentUser.first_name,
+        authorUsername: state.currentUser.username ? '@' + state.currentUser.username : 'بدون يوزرنيم',
         gender: document.getElementById('fieldGender').value,
         edu: edu,
         major: major,
@@ -432,7 +434,12 @@ function renderAdminExperiences() {
         const row = document.createElement('div');
         row.className = 'admin-exp-row';
         row.innerHTML = `
-            <span style="max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${exp.content}</span>
+            <div style="max-width: 60%; overflow: hidden;">
+                <div style="font-size: 0.72rem; color: var(--gold-light); font-weight: bold; margin-bottom: 2px;">
+                    👤 الكاتب: ${exp.authorName || 'زائر'} (${exp.authorUsername || 'بدون يوزر'})
+                </div>
+                <div style="text-overflow: ellipsis; white-space: nowrap; overflow: hidden; color: #ccc;">${exp.content}</div>
+            </div>
             <div>
                 <button onclick="toggleHideExp(${exp.id})" style="color:var(--gold-light); margin-left:6px;">${exp.hidden ? 'إظهار' : 'إخفاء'}</button>
                 <button onclick="deleteExp(${exp.id})">حذف</button>
@@ -501,7 +508,7 @@ async function addAdminAd() {
     } else {
         state.ads.push({ id: Date.now(), title: text, link: link, image: '' });
         await saveServerData();
-        document.getElementById('adminAdText', '').value = '';
+        document.getElementById('adminAdText').value = '';
         document.getElementById('adminAdLink').value = '';
         renderAds();
         alert('تم إضافة الإعلان بنجاح');
