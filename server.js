@@ -7,9 +7,10 @@ const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
-// قاعدة البيانات الافتراضية
+// السماح بقراءة ملفات الواجهة من الجذر
+app.use(express.static(__dirname));
+
 let db = {
     categories: ["الكل", "الحرس الملكي", "الحرس الوطني", "وزارة الدفاع", "الكلية الامنيه", "أخرى"],
     majors: ["علوم حاسب", "هندسة", "إدارة أعمال", "قانون", "شريعة", "أخرى"],
@@ -20,7 +21,6 @@ let db = {
     experiences: []
 };
 
-// قراءة البيانات المحفوظة إن وجدت
 if (fs.existsSync(DATA_FILE)) {
     try {
         const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
@@ -28,12 +28,15 @@ if (fs.existsSync(DATA_FILE)) {
     } catch (e) {}
 }
 
-// جلب البيانات لكل الزوار
+// توجيه الصفحة الرئيسية لملف index.html صراحةً لمنع خطأ Not Found
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.get('/api/data', (req, res) => {
     res.json(db);
 });
 
-// حفظ وتحديث البيانات (تجارب، أدمن، أقسام)
 app.post('/api/data', (req, res) => {
     db = req.body;
     fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2));
