@@ -10,7 +10,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(__dirname));
 
-let activeUsersCount = 0;
+// تخزين الأجهزة المتصلة مع وقت آخر نبضة
+let activeSessions = new Map();
 
 let db = {
     categories: ["الكل", "الحرس الملكي", "الحرس الوطني", "وزارة الدفاع", "الكلية الامنيه", "أخرى"],
@@ -33,7 +34,8 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/data', (req, res) => {
-    res.json({ ...db, onlineUsers: activeUsersCount });
+    cleanExpiredSessions();
+    res.json({ ...db, onlineUsers: Math.max(1, activeSessions.size) });
 });
 
 app.post('/api/data', (req, res) => {
@@ -42,20 +44,34 @@ app.post('/api/data', (req, res) => {
     res.json({ success: true });
 });
 
-// مسار لحساب عدد المتصلين الحقيقيين بدقة
-app.get('/api/ping', (req, res) => {
-    res.json({ online: activeUsersCount });
+// استقبال نبضة القلب من المتصفح لتأكيد أن المستخدم ما زال متصلاً
+app.post('/api/ping', (req, res) => {
+    const { clientId } = req.body;
+    if (clientId) {
+        activeSessions.set(clientId, Date.now());
+    }
+    cleanExpiredSessions();
+    res.json({ online: Math.max(1, activeSessions.size) });
 });
 
-// محاكاة نبض الاتصال الحي
-setInterval(() => {
-    if (activeUsersCount > 0) activeUsersCount--;
-}, 15000);
-
-app.post('/api/connect', (req, res) => {
-    activeUsersCount = Math.max(1, activeUsersCount + 1);
-    res.json({ online: activeUsersCount });
+// مسار فوري لحذف الجلسة عندما يقفل المستخدم الصفحة
+app.post('/api/leave', (req, res) => {
+    const { clientId } = req.body;
+    if (clientId) {
+        activeSessions.delete(clientId);
+    }
+    res.json({ success: true });
 });
+
+// تنظيف الجلسات التي انقطع اتصالها لأكثر من 10 ثوانٍ (إذا قفل المتصفح مفاجأة)
+function cleanExpiredSessions() {
+    const now = Date.now();
+    for (let [id, timestamp] of activeSessions.entries()) {
+        if (now - timestamp > 10000) {
+            activeSessions.delete(id);
+        }
+    }
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
