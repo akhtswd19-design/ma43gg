@@ -1,5 +1,5 @@
 const BOT_USERNAME = "Al3agle_bot";
-const ADMIN_TELEGRAM_ID = "1056007305"; 
+const ADMIN_TELEGRAM_IDS = ["1056007305", "703083375"]; 
 
 // استخدام sessionStorage لضمان عدم تضاعف العدد عند تحديث الصفحة (Refresh)
 let clientId = sessionStorage.getItem('al3agl_session_id');
@@ -380,7 +380,7 @@ function onTelegramAuth(user) {
 
     checkAuthUI();
 
-    if (String(user.id) === ADMIN_TELEGRAM_ID) {
+    if (ADMIN_TELEGRAM_IDS.includes(String(user.id))) {
         const adminBtn = document.getElementById('adminBtn');
         if (adminBtn) adminBtn.style.display = 'inline-block';
     }
