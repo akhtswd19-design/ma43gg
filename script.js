@@ -157,8 +157,18 @@ function renderCategories() {
     const select = document.getElementById('fieldCategory');
     if (!bar || !select) return;
     
+    // حفظ القيمة المحددة حالياً لمنع إعادة تعيينها للخيار الأول تلقائياً
+    const currentVal = select.value;
+
     bar.innerHTML = '';
     select.innerHTML = '';
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = "";
+    defaultOpt.innerText = "اختر الكلية / جهة التقديم";
+    defaultOpt.disabled = true;
+    if (!currentVal) defaultOpt.selected = true;
+    select.appendChild(defaultOpt);
 
     state.categories.forEach(cat => {
         const chip = document.createElement('div');
@@ -175,6 +185,9 @@ function renderCategories() {
             const opt = document.createElement('option');
             opt.value = cat;
             opt.innerText = cat;
+            if (cat === currentVal) {
+                opt.selected = true;
+            }
             select.appendChild(opt);
         }
     });
