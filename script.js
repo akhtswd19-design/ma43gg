@@ -1,6 +1,13 @@
 const BOT_USERNAME = "Al3agle_bot";
 const ADMIN_TELEGRAM_ID = "1056007305"; 
 
+// إنشاء معرف فريد وثابت لهذا المتصفح لمنع تضاعف العدد عند الـ Refresh
+let clientId = sessionStorage.getItem('al3agl_session_id');
+if (!clientId) {
+    clientId = 'client_' + Math.random().toString(36).substring(2) + Date.now();
+    sessionStorage.setItem('al3agl_session_id', clientId);
+}
+
 let state = {
     activeCategory: "الكل",
     categories: ["الكل", "الحرس الملكي", "الحرس الوطني", "وزارة الدفاع", "الكلية الامنيه", "أخرى"],
@@ -8,7 +15,7 @@ let state = {
     ads: [],
     experiences: [],
     currentUser: null,
-    votesMap: JSON.parse(localStorage.getItem('al3agl_user_votes') || '{}') // تخزين أصوات المستخدم الشخصية
+    votesMap: JSON.parse(localStorage.getItem('al3agl_user_votes') || '{}')
 };
 
 async function fetchServerData() {
@@ -22,7 +29,7 @@ async function fetchServerData() {
             state.experiences = data.experiences || [];
             
             const onlineEl = document.getElementById('onlineCount');
-            if (onlineEl && data.onlineUsers) onlineEl.innerText = data.onlineUsers;
+            if (onlineEl && data.onlineUsers !== undefined) onlineEl.innerText = data.onlineUsers;
 
             renderCategories();
             renderMajors();
@@ -47,20 +54,29 @@ async function saveServerData() {
     } catch(e) {}
 }
 
-// إرسال إشارة اتصال حقيقية للسيرفر لحساب المتصلين بدقة
-async function pingServer() {
+// إرسال نبضة للسيرفر لتثبيت وجود المتصفح الحالي بدون زيادة وهمية عند التحديث
+async function sendPing() {
     try {
-        const res = await fetch('/api/connect', { method: 'POST' });
+        const res = await fetch('/api/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId })
+        });
         const data = await res.json();
         const onlineEl = document.getElementById('onlineCount');
-        if (onlineEl && data.online) onlineEl.innerText = data.online;
+        if (onlineEl && data.online !== undefined) onlineEl.innerText = data.online;
     } catch(e) {}
 }
 
+// رصد إغلاق الصفحة أو الخروج منها لحذف المتصل فوراً من العداد
+window.addEventListener('beforeunload', () => {
+    navigator.sendBeacon('/api/leave', JSON.stringify({ clientId }));
+});
+
 document.addEventListener("DOMContentLoaded", () => {
     initStarsBg();
-    pingServer();
-    setInterval(pingServer, 10000); // نبض كل 10 ثواني
+    sendPing();
+    setInterval(sendPing, 4000); // نبض كل 4 ثوانٍ للحفاظ على العداد حي ودقيق
     fetchServerData();
     setInterval(fetchServerData, 3000);
 
@@ -208,7 +224,6 @@ function renderExperiences() {
         filtered = filtered.filter(item => item.category === state.activeCategory);
     }
 
-    // حساب نسبة الصحة الدقيقة لكل تجربة بناءً على عدد المصوتين
     filtered.forEach(item => {
         const up = item.upvotes || 0;
         const down = item.downvotes || 0;
@@ -217,7 +232,6 @@ function renderExperiences() {
         item.totalVotes = total;
     });
 
-    // الترتيب التلقائي حسب نسبة الصحة للأعلى
     filtered.sort((a, b) => b.accuracy - a.accuracy || b.totalVotes - a.totalVotes);
 
     if (filtered.length === 0) {
@@ -226,7 +240,7 @@ function renderExperiences() {
     }
 
     filtered.forEach(exp => {
-        const userVote = state.votesMap[exp.id] || null; // حالة التصويت الخاصة بهذا المستخدم فقط
+        const userVote = state.votesMap[exp.id] || null;
         const upCount = exp.upvotes || 0;
         const downCount = exp.downvotes || 0;
 
@@ -264,7 +278,6 @@ function renderExperiences() {
     });
 }
 
-// نظام التصويت الفردي المستقل لكل مستخدم
 async function vote(expId, type) {
     const item = state.experiences.find(e => e.id === expId);
     if (!item) return;
@@ -275,16 +288,13 @@ async function vote(expId, type) {
     const currentVote = state.votesMap[expId] || null;
 
     if (currentVote === type) {
-        // إلغاء التصويت إذا ضغط المستخدم على نفس الزر مرة أخرى
         if (type === 'up') item.upvotes--;
         else item.downvotes--;
         delete state.votesMap[expId];
     } else {
-        // إزالة التصويت القديم إن وجد
         if (currentVote === 'up') item.upvotes--;
         if (currentVote === 'down') item.downvotes--;
 
-        // تسجيل التصويت الجديد
         if (type === 'up') item.upvotes++;
         else item.downvotes++;
         state.votesMap[expId] = type;
@@ -409,7 +419,7 @@ function renderAdminAds() {
     state.ads.forEach(ad => {
         const tag = document.createElement('div');
         tag.className = 'admin-tag';
-        tag.innerHTML = `${ad.title} <span onclick="removeAd(${ad.id})">× حذف</span>`;
+        tag.innerHTML = `${ad.title || 'صورة إعلانية'} <span onclick="removeAd(${ad.id})">× حذف</span>`;
         list.appendChild(tag);
     });
 }
@@ -474,12 +484,11 @@ async function addAdminAd() {
         return;
     }
 
-    let imageUrl = '';
     if (fileInput && fileInput.files.length > 0) {
         const file = fileInput.files[0];
         const reader = new FileReader();
         reader.onload = async function(e) {
-            imageUrl = e.target.result;
+            const imageUrl = e.target.result;
             state.ads.push({ id: Date.now(), title: text, link: link, image: imageUrl });
             await saveServerData();
             document.getElementById('adminAdText').value = '';
@@ -492,7 +501,7 @@ async function addAdminAd() {
     } else {
         state.ads.push({ id: Date.now(), title: text, link: link, image: '' });
         await saveServerData();
-        document.getElementById('adminAdText').value = '';
+        document.getElementById('adminAdText', '').value = '';
         document.getElementById('adminAdLink').value = '';
         renderAds();
         alert('تم إضافة الإعلان بنجاح');
